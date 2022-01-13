@@ -90,6 +90,48 @@ app.post("/employees/signup", async (req, res) => {
     }
   });
 
+  //GET Employees
+  //shows only first 10 employees by default 
+  app.get("/employees", auth, async (req, res) => {
+    let {offset=0, limit=10, ...query} = req.query;
+    try{
+        const employees = await Employee.findAll({
+        offset: parseInt(offset),
+        limit: parseInt(limit),
+        attributes: { exclude: ['employee_password'] },
+            where: {
+            [Op.and]: [
+            query
+            ]
+        }
+        });
+        if(employees)
+            return res.status(200).json(employees);
+        else
+            return res.status(404).send("Resource not found");
+    }catch(err){
+        console.log(err);
+        return res.status(500).send("Internal Server Error");
+    }
+    });
+
+  //GET Employee by ID
+  app.get("/employees/:id", auth, async (req, res) => {
+    try{
+      const employee = await Employee.findOne({
+        attributes: { exclude: ['employee_password'] },
+        where: { id: req.params.id } 
+    });
+      if(employee)
+        return res.status(200).json(employee);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
   //PATCH Update Employee by ID
   app.patch("/employees/:id", auth, async (req, res) => {
     try {
