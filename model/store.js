@@ -7,10 +7,7 @@ Store.init({
   zip_code: DataTypes.STRING,
   address: DataTypes.STRING,
   city: DataTypes.STRING,
-  state: DataTypes.STRING,
-  opening_time: DataTypes.TIME,
-  closing_time: DataTypes.TIME,
-  working_days: DataTypes.STRING,
+  state: DataTypes.STRING
 }, { sequelize, modelName: 'Store' });
-sequelize.sync();
+
 module.exports = Store;

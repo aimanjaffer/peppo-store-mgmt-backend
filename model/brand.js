@@ -5,5 +5,5 @@ class Brand extends Model {}
 Brand.init({
   brand_name: DataTypes.STRING
 }, { sequelize, modelName: 'Brand' });
-sequelize.sync();
+
 module.exports = Brand;

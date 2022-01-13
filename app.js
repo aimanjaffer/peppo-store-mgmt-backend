@@ -3,11 +3,14 @@ const { Op } = require("sequelize");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require('jsonwebtoken');
+const { DateTime } = require("luxon");
 const auth = require("./middleware/auth");
+const authAsAdmin = require("./middleware/authAsAdmin");
+const authAsAdminOrManager = require("./middleware/authAsAdminOrManager");
 const cors = require('cors');
+const sequelize = require("./config/database");
 
 const app = express();
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors())
@@ -20,7 +23,18 @@ const Order = require("./model/order");
 const OrderItem = require("./model/orderItem");
 const Product = require("./model/product");
 const Store = require("./model/store");
+const StoreTiming = require("./model/storeTiming");
 
+Brand.hasMany(Product);
+Category.hasMany(Product);
+Store.hasMany(Employee);
+Customer.hasMany(Order);
+Store.hasMany(Order);
+OrderItem.belongsTo(Order);
+OrderItem.belongsTo(Product);
+Store.hasMany(StoreTiming);
+
+sequelize.sync();
 // Employee Signup
 app.post("/employees/signup", async (req, res) => {
     try {
@@ -44,10 +58,10 @@ app.post("/employees/signup", async (req, res) => {
         employee_email: email.toLowerCase(),
         employee_password: encryptedPassword,
         employee_role: role,
-        store_id: store_id
+        StoreId: store_id
       });
       const token = jwt.sign(
-        { user_id: employee.id, email },
+        { user_id: employee.id, email, role, StoreId:store_id },
         process.env.TOKEN_KEY,
         {
           expiresIn: "2h",
@@ -74,7 +88,7 @@ app.post("/employees/signup", async (req, res) => {
       });
       if (employee && (await bcrypt.compare(password, employee.employee_password))) {
         const token = jwt.sign(
-          { user_id: employee.id, email },
+          { user_id: employee.id, email, role:employee.employee_role, StoreId:employee.StoreId },
           process.env.TOKEN_KEY,
           {
             expiresIn: "2h",
@@ -133,8 +147,12 @@ app.post("/employees/signup", async (req, res) => {
   });
 
   //PATCH Update Employee by ID
-  app.patch("/employees/:id", auth, async (req, res) => {
+  app.patch("/employees/:id", authAsAdminOrManager, async (req, res) => {
     try {
+      if(req.user.role !== "admin" && (req.body.employee_role || req.body.StoreId)){
+        console.log("Only Administrators can update Employee's Role / Store Id");
+        return res.status(403).send("Insufficient Privileges");
+      }
       const [rowsUpdatedCount] = await Employee.update( req.body, {
           where: { id: req.params.id }
         });
@@ -149,7 +167,7 @@ app.post("/employees/signup", async (req, res) => {
   });
 
   //Delete Employee By ID
-  app.delete("/employees/:id", auth, async (req, res) => {
+  app.delete("/employees/:id", authAsAdmin, async (req, res) => {
     try {
         const rowsDeletedCount = await Employee.destroy({
             limit: 1,
@@ -204,7 +222,7 @@ app.post("/employees/signup", async (req, res) => {
   });
 
   //POST Create New Store
-  app.post("/stores", auth, async (req, res) => {
+  app.post("/stores", authAsAdmin, async (req, res) => {
     try {
       const { store_name, zip_code, address, city, state, opening_time="10:00", closing_time="22:00", working_days="MON,TUE,WED,THU,FRI,SAT,SUN" } = req.body;
       if (!(store_name, zip_code, address, city, state)) {
@@ -238,7 +256,7 @@ app.post("/employees/signup", async (req, res) => {
   });
 
   //Delete Store By ID
-  app.delete("/stores/:id", auth, async (req, res) => {
+  app.delete("/stores/:id", authAsAdmin, async (req, res) => {
     try {
         const rowsDeletedCount = await Store.destroy({
             limit: 1,
@@ -255,8 +273,11 @@ app.post("/employees/signup", async (req, res) => {
   });
 
   //PATCH Update Store
-  app.patch("/stores/:id", auth, async (req, res) => {
+  app.patch("/stores/:id", authAsAdminOrManager, async (req, res) => {
     try {
+      // Store Manager can only update the store for which they are manager
+      if(req.user.role!=="admin" && req.user.StoreId != req.params.id)
+        return res.status(403).send("Insufficient Privileges");
       const [rowsUpdatedCount] = await Store.update( req.body, {
           where: { id: req.params.id }
         });
@@ -476,6 +497,43 @@ app.post("/employees/signup", async (req, res) => {
     });
       if(orderItems)
         return res.status(200).json(orderItems);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
+  //GET Store Timings By Store ID for given dayOfWeek
+  app.get("/storeTimings/:storeId/:dayOfWeek", auth, async (req, res) => {
+    try{
+      const storeTimings = await StoreTiming.findOne({
+        where: {
+        StoreId: req.params.storeId,
+        day_of_week: req.params.dayOfWeek
+      }
+    });
+      if(storeTimings)
+        return res.status(200).json(storeTimings);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
+  //GET All Store Timings By Store ID
+  app.get("/storeTimings/:storeId", auth, async (req, res) => {
+    try{
+      const storeTimings = await StoreTiming.findAll({
+        where: {
+        StoreId: req.params.storeId
+      }
+    });
+      if(storeTimings)
+        return res.status(200).json(storeTimings);
       else
         return res.status(404).send("Resource not found");
     }catch(err){

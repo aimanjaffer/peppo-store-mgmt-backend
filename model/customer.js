@@ -7,5 +7,5 @@ Customer.init({
   customer_phone: DataTypes.STRING,
   customer_email: DataTypes.STRING
 }, { sequelize, modelName: 'Customer' });
-sequelize.sync();
+
 module.exports = Customer;

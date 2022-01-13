@@ -5,5 +5,5 @@ class Category extends Model {}
 Category.init({
   category_name: DataTypes.STRING
 }, { sequelize, modelName: 'Category' });
-sequelize.sync();
+
 module.exports = Category;

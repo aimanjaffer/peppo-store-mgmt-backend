@@ -8,8 +8,7 @@ Employee.init({
   employee_phone: DataTypes.STRING,
   employee_email: DataTypes.STRING,
   employee_password: DataTypes.STRING,
-  store_id: DataTypes.INTEGER,
   auth_token: DataTypes.STRING,
 }, { sequelize, modelName: 'Employee' });
-sequelize.sync();
+
 module.exports = Employee;
