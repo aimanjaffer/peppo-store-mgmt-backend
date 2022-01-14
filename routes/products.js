@@ -46,12 +46,11 @@ const Store = require("../model/store");
   //Get stores that have a particular product
   router.get("/:id/stores", isLoggedIn, async (req, res) => {
     try{
-      const storeIds = await StoreProduct.findAll({ attributes:['StoreId','quantityInStock'], where: { ProductId: req.params.id } });
-      let ids = storeIds.filter(item => item.quantityInStock > 0).map(item => item.StoreId);
-      if(!ids || (ids.length == 0))
+      const results = await StoreProduct.findAll({ where: { ProductId: req.params.id, quantityInStock:{[Op.gt]: 0} }, include:[Store] });
+      if(!results || (results.length == 0))
         return res.status(404).send("Resource not found");
       else{
-        const stores = await Store.findAll({where: { id: { [Op.or]: ids } }});
+        let stores = results.map(item => item.Store);
         return res.status(200).json(stores);
       }
     }catch(err){

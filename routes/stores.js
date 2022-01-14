@@ -262,12 +262,11 @@ const Product = require("../model/product");
   // Get products that are available in the store
   router.get("/:id/products", isLoggedIn, async (req, res) => {
     try{
-      const productIds = await StoreProduct.findAll({ attributes:['ProductId','quantityInStock'], where: { StoreId: req.params.id } });
-      let ids = productIds.filter(item => item.quantityInStock > 0).map(item => item.ProductId);
-      if(!ids || (ids.length == 0))
+      const results = await StoreProduct.findAll({ where: { StoreId: req.params.id , quantityInStock:{[Op.gt]: 0 }}, include:[{model: Product, required: true}] });
+      if(!results || (results.length == 0))
         return res.status(404).send("Resource not found");
       else{
-        const products = await Product.findAll({where: { id: { [Op.or]: ids } }});
+        let products = results.map((item) => ({quantityInStock: item.quantityInStock, Product: item.Product}));
         return res.status(200).json(products);
       }
     }catch(err){
