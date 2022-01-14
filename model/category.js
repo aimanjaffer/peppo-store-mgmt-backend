@@ -5,6 +5,5 @@ class Category extends Model {}
 Category.init({
   category_name: DataTypes.STRING
 }, { sequelize, modelName: 'Category' });
-Category.hasMany(Product);
-Product.belongsTo(Category);
+
 module.exports = Category;

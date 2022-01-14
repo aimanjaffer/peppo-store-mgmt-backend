@@ -55,6 +55,4 @@ const isLoggedIn = require("../middleware/isLoggedInUser");
     }
   });
 
-  //TODO: filter for orders based on createdAt between two dates
-
   module.exports = router;
