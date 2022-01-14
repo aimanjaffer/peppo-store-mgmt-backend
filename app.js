@@ -3,7 +3,6 @@ const { Op } = require("sequelize");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require('jsonwebtoken');
-const { DateTime } = require("luxon");
 const auth = require("./middleware/auth");
 const authAsAdmin = require("./middleware/authAsAdmin");
 const authAsAdminOrManager = require("./middleware/authAsAdminOrManager");
@@ -24,6 +23,7 @@ const OrderItem = require("./model/orderItem");
 const Product = require("./model/product");
 const Store = require("./model/store");
 const StoreTiming = require("./model/storeTiming");
+const StoreProduct = require("./model/storeProduct");
 
 Brand.hasMany(Product);
 Category.hasMany(Product);
@@ -33,6 +33,8 @@ Store.hasMany(Order);
 OrderItem.belongsTo(Order);
 OrderItem.belongsTo(Product);
 Store.hasMany(StoreTiming);
+Store.hasMany(StoreProduct);
+Product.hasMany(StoreProduct);
 
 sequelize.sync();
 // Employee Signup
@@ -149,11 +151,13 @@ app.post("/employees/signup", async (req, res) => {
   //PATCH Update Employee by ID
   app.patch("/employees/:id", authAsAdminOrManager, async (req, res) => {
     try {
-      if(req.user.role !== "admin" && (req.body.employee_role || req.body.StoreId)){
+      let {employee_name, employee_role, employee_phone, employee_email, StoreId} = req.body;
+      if(req.user.role !== "admin" && (employee_role || StoreId)){
         console.log("Only Administrators can update Employee's Role / Store Id");
         return res.status(403).send("Insufficient Privileges");
       }
-      const [rowsUpdatedCount] = await Employee.update( req.body, {
+      const [rowsUpdatedCount] = await Employee.update( 
+        {employee_name, employee_role, employee_phone, employee_email, StoreId}, {
           where: { id: req.params.id }
         });
       if(rowsUpdatedCount == 1)
@@ -275,12 +279,14 @@ app.post("/employees/signup", async (req, res) => {
   //PATCH Update Store
   app.patch("/stores/:id", authAsAdminOrManager, async (req, res) => {
     try {
+      let {store_name, zip_code, address, city, state} = req.body;
       // Store Manager can only update the store for which they are manager
       if(req.user.role!=="admin" && req.user.StoreId != req.params.id)
         return res.status(403).send("Insufficient Privileges");
-      const [rowsUpdatedCount] = await Store.update( req.body, {
-          where: { id: req.params.id }
-        });
+      const [rowsUpdatedCount] = await Store.update( 
+        {store_name, zip_code, address, city, state}, 
+        { where: { id: req.params.id }
+      });
       if(rowsUpdatedCount == 1)
         return res.status(200).json("Store with ID "+req.params.id+" successfully updated");
       else
@@ -481,6 +487,20 @@ app.post("/employees/signup", async (req, res) => {
     }
   });
 
+  // GET Orders by StoreId
+  app.get("/orders/store/:storeId", auth, async (req, res) => {
+    try{
+      const orders = await Order.findAll({ where: { StoreId: req.params.storeId } });
+      if(orders)
+        return res.status(200).json(orders);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
   //GET Order Items
   //Returns only first 10 Order Items by default 
   app.get("/orderitems", auth, async (req, res) => {
@@ -537,6 +557,184 @@ app.post("/employees/signup", async (req, res) => {
       else
         return res.status(404).send("Resource not found");
     }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
+  //GET managers by storeId
+  app.get("/managers/store/:id", auth, async (req, res) => {
+    try{
+      const managers = await Employee.findAll({
+        attributes: { exclude: ['employee_password'] },
+        where: { StoreId: req.params.id, employee_role:"manager" } 
+    });
+      if(managers)
+        return res.status(200).json(managers);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+  //GET all employees by storeId
+  app.get("/employees/store/:id", auth, async (req, res) => {
+    try{
+      const employees = await Employee.findAll({
+        attributes: { exclude: ['employee_password'] },
+        where: { StoreId: req.params.id } 
+    });
+      if(employees)
+        return res.status(200).json(employees);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+  //GET delivery agents by storeId
+  app.get("/deliveryagents/store/:id", auth, async (req, res) => {
+    try{
+      const employees = await Employee.findAll({
+        attributes: { exclude: ['employee_password'] },
+        where: { StoreId: req.params.id, employee_role:"delivery_agent" } 
+    });
+      if(employees)
+        return res.status(200).json(employees);
+      else
+        return res.status(404).send("Resource not found");
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
+  // POST - create employee with role delivery_agent  
+  app.post("/deliveryagent/new", authAsAdminOrManager, async (req, res) => {
+    try {
+      const { name, phone, email, storeId } = req.body;
+      if (!( name, phone, email, storeId)) {
+        res.status(400).send("All input is required");
+      }
+      const employee = await Employee.findOne({
+        where: {
+          employee_email: email
+        }
+      });
+      if (employee) {
+        return res.status(409).send("Employee with this email already exists.");      
+      }else{
+        const employee = await Employee.create({
+          employee_name: name,
+          employee_email: email.toLowerCase(),
+          employee_phone: phone,
+          employee_role: "delivery_agent",
+          StoreId: store_id
+        });
+        return res.status(201).json(employee);
+      }
+    } catch (err) {
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+  //POST product to storeProducts (StoreId and ProductId)
+  app.post("/storeProduct/new", authAsAdminOrManager, async (req, res) => {
+    try{
+      const { storeId, productId, quantity=100 } = req.body;
+      if (!( storeId, productId )) {
+        res.status(400).send("All input is required");
+      }
+      const storeProduct = await StoreProduct.findOne({
+        where: {
+          StoreId: storeId,
+          ProductId: productId
+        }
+      });
+      if (storeProduct) {
+        return res.status(409).send("Product already exists in Store.");      
+      }else{
+        const storeProduct = await StoreProduct.create({
+          StoreId: storeId,
+          ProductId: productId,
+          quantityInStock: quantity
+        });
+        return res.status(201).json(storeProduct);
+      }
+    }catch(err){
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+  //DELETE product from storeProducts (StoreId and ProductId)
+  app.delete("/store/:storeId/product/:productId", authAsAdmin, async (req, res) => {
+    try {
+        const rowsDeletedCount = await StoreProduct.destroy({
+            limit: 1,
+            where: { StoreId: req.params.storeId, ProductId: req.params.productId }
+            });
+        if(rowsDeletedCount == 1)
+          return res.status(200).json("Product with ID "+req.params.productId+" successfully deleted from Store "+req.params.storeId);
+        else
+          return res.status(404).send("Resource not found");
+    } catch (err) {
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+  //PATCH - Update quantity of product at store (StoreId and ProductId)
+  app.patch("/store/updateProductQuantity", authAsAdminOrManager, async (req, res) => {
+    try {
+      let {storeId, productId, quantity} = req.body;
+      if(!(storeId && productId && quantity)){
+        res.status(400).send("Mandatory inputs missing");
+      }
+      const [rowsUpdatedCount] = await StoreProduct.update({ quantityInStock : quantity },{
+          limit: 1,
+          where: { StoreId: storeId, ProductId: productId }
+          });
+      if(rowsUpdatedCount == 1)
+        return res.status(200).json("Quantity of Product with ID "+productId+" updated at store with ID "+storeId);
+      else
+        return res.status(404).send("Resource not found");
+    } catch (err) {
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+  
+  //PATCH update store timings by storeId and dayOfWeek
+  app.patch("/store/:storeId/:dayOfWeek", authAsAdminOrManager, async (req, res) => {
+    let {opening_time, closing_time} = req.body
+    try {
+      const [rowsUpdatedCount] = await StoreTiming.update({ opening_time, closing_time },{
+          limit: 1,
+          where: { StoreId: req.params.storeId, day_of_week: req.params.dayOfWeek }
+          });
+      if(rowsUpdatedCount == 1)
+        return res.status(200).json("Timings for Store with ID "+req.params.storeId+" successfully updated");
+      else
+        return res.status(404).send("Resource not found");
+    } catch (err) {
+      console.log(err);
+      return res.status(500).send("Internal Server Error");
+    }
+  });
+
+  //PATCH update store timings by storeId for all days of the week
+  app.patch("/store/:storeId", authAsAdminOrManager, async (req, res) => {
+    let {opening_time, closing_time} = req.body
+    try {
+      const [rowsUpdatedCount] = await StoreTiming.update({ opening_time, closing_time },{
+          where: { StoreId: req.params.storeId }
+      });
+      if(rowsUpdatedCount > 0)
+        return res.status(200).json("Timings for Store with ID "+req.params.storeId+" successfully updated");
+      else
+        return res.status(404).send("Resource not found");
+    } catch (err) {
       console.log(err);
       return res.status(500).send("Internal Server Error");
     }

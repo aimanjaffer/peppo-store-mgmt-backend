@@ -3,6 +3,7 @@ const sequelize = require("../config/database");
 
 class Store extends Model {}
 Store.init({
+  img_url: DataTypes.STRING,
   store_name: DataTypes.STRING,
   zip_code: DataTypes.STRING,
   address: DataTypes.STRING,
