@@ -38,14 +38,13 @@ const Product = require("../../model/product");
     if(store)
       return res.status(200).json(store);
     else
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error: "Resource not found"});
   });
 
   //POST Create New Store
   router.post("/", isLoggedIn, isAdmin, async (req, res, next) => {
     const { imgUrl, name, zipCode, address, city, state } = req.body;
     if (!(name, zipCode, address, city, state)) {
-        console.log("Mandatory fields are missing for Store Creation");
       res.status(400).send("Mandatory fields are missing for Store Creation");
     }
     const rows = await Store.findAll({
@@ -54,7 +53,7 @@ const Product = require("../../model/product");
       }
     }).catch(next);
     if (rows && rows.length > 0) {
-      return res.status(409).send("Store with this name already exists. Please Change the Store Name");
+      return res.status(409).send({error: "Store with this name already exists. Please Change the Store Name"});
     }else if(rows && rows.length == 0){
       const store = await Store.create({
         imgUrl,
@@ -76,9 +75,9 @@ const Product = require("../../model/product");
         where: { id: req.params.id }
         }).catch(next);
     if(rowsDeletedCount == 1)
-      return res.status(200).json("Store with ID "+req.params.id+" successfully deleted");
+      return res.status(200).json({message: "Store with ID "+req.params.id+" successfully deleted"});
     else if(rowsDeletedCount == 0)
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error: "Resource not found"});
   });
 
   //PATCH Update Store
@@ -86,19 +85,20 @@ const Product = require("../../model/product");
     let {name, zipCode, address, city, state} = req.body;
     // Store Manager can only update the store for which they are manager
     if(req.user.role!=="admin" && req.user.StoreId != req.params.id)
-      return res.status(403).send("Insufficient Privileges");
+      return res.status(403).send({error: "Insufficient Privileges"});
     const [rowsUpdatedCount] = await Store.update( 
       {name, zipCode, address, city, state}, 
       { where: { id: req.params.id }
     }).catch(next);
     if(rowsUpdatedCount == 1)
-      return res.status(200).json("Store with ID "+req.params.id+" successfully updated");
+      return res.status(200).json({message: "Store with ID "+req.params.id+" successfully updated"});
     else if(rowsUpdatedCount == 0)
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error: "Resource not found"});
   });
   //GET Store Timings By Store ID for given dayOfWeek
   router.get("/:id/timings/:dayOfWeek", isLoggedIn, async (req, res, next) => {
     const storeTimings = await StoreTiming.findOne({
+      attributes:['openingTime','closingTime'],
       where: {
       StoreId: req.params.id,
       dayOfWeek: req.params.dayOfWeek
@@ -107,12 +107,13 @@ const Product = require("../../model/product");
     if(storeTimings)
       return res.status(200).json(storeTimings);
     else
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error: "Store Timings not found for store with ID "+req.params.id+" for day: "+req.params.dayOfWeek});
   });
 
   //GET All Store Timings By Store ID
   router.get("/:id/timings", isLoggedIn, async (req, res, next) => {
     const storeTimings = await StoreTiming.findAll({
+      attributes:['dayOfWeek','openingTime','closingTime'],
       where: {
       StoreId: req.params.id
       }
@@ -129,9 +130,9 @@ const Product = require("../../model/product");
         where: { StoreId: req.params.id, dayOfWeek: req.params.dayOfWeek }
         }).catch(next);
     if(rowsUpdatedCount == 1)
-      return res.status(200).json("Timings for Store with ID "+req.params.id+" successfully updated");
+      return res.status(200).json({message: "Timings for Store with ID "+req.params.id+" successfully updated"});
     else
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error: "Resource not found"});
   });
 
   //PATCH update store timings by storeId for all days of the week
@@ -141,9 +142,9 @@ const Product = require("../../model/product");
         where: { StoreId: req.params.id }
     }).catch(next);
     if(rowsUpdatedCount > 0)
-      return res.status(200).json("Timings for Store with ID "+req.params.id+" successfully updated");
+      return res.status(200).json({message: "Timings for Store with ID "+req.params.id+" successfully updated"});
     else
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error: "Resource not found"});
   });
 
   //POST add product to storeProducts (StoreId and ProductId)
@@ -161,7 +162,7 @@ const Product = require("../../model/product");
       }
     }).catch(next);
     if (existingStoreProduct) {
-      return res.status(409).send("Product already exists in Store.");      
+      return res.status(409).send({error: "Product already exists in Store."});      
     }else{
       const storeProduct = await StoreProduct.create({
         StoreId: storeId,
@@ -179,26 +180,26 @@ const Product = require("../../model/product");
         where: { StoreId: req.params.id, ProductId: req.params.productId }
         }).catch(next);
     if(rowsDeletedCount == 1)
-      return res.status(200).json("Product with ID "+req.params.productId+" successfully deleted from Store "+req.params.id);
+      return res.status(200).json({message: "Product with ID "+req.params.productId+" successfully deleted from Store "+req.params.id});
     else if(rowsDeletedCount == 0)
-      return res.status(409).send("Unable to delete resource");
+      return res.status(409).send({error: "Unable to remove product from the store"});
   });
   //PATCH - Update quantity of product at store (StoreId and ProductId)
-  router.patch("/:id/products/:productId/updateQuantity", isLoggedIn, isAdminOrManager, async (req, res, next) => {
+  router.patch("/:id/products/:productId", isLoggedIn, isAdminOrManager, async (req, res, next) => {
     const storeId = req.params.id;
     const productId = req.params.productId;
     const {quantity} = req.body;
     if(!(storeId && productId && quantity)){
-      res.status(400).send("Mandatory inputs missing");
+      res.status(400).send({message: "Mandatory inputs missing"});
     }
     const [rowsUpdatedCount] = await StoreProduct.update({ quantityInStock : quantity }, {
         limit: 1,
         where: { StoreId: storeId, ProductId: productId }
     }).catch(next);
     if(rowsUpdatedCount == 1)
-      return res.status(200).json("Quantity of Product with ID "+productId+" updated at store with ID "+storeId);
+      return res.status(200).json({message: "Quantity of Product with ID "+productId+" updated at store with ID "+storeId});
     else if(rowsUpdatedCount == 0)
-      return res.status(409).send("Unable to update resource");
+      return res.status(409).send({message: "Unable to update resource"});
   });
 
   // Get products that are available in the store
@@ -224,6 +225,6 @@ const Product = require("../../model/product");
     if(quantity)
       return res.status(200).json(quantity);
     else
-      return res.status(404).send("Resource not found");
+      return res.status(404).send({error:"Resource not found"});
   })
   module.exports = router;
