@@ -8,6 +8,7 @@ const Category = require('./category');
 const Customer = require('./customer');
 const OrderItem = require('./orderItem');
 const Store = require("./store");
+const DeliveryAgent = require("./deliveryAgent");
 
 function associate(){
     Brand.hasMany(Product);
@@ -30,5 +31,7 @@ function associate(){
     StoreTiming.belongsTo(Store);
     Store.hasMany(StoreProduct);
     StoreProduct.belongsTo(Store);
+    DeliveryAgent.hasMany(Order);
+    Order.belongsTo(DeliveryAgent);
 }
 module.exports = associate;

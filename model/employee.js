@@ -3,13 +3,13 @@ const sequelize = require("../config/database");
 
 class Employee extends Model {}
 Employee.init({
-  img_url: DataTypes.STRING,
-  employee_name: DataTypes.STRING,
-  employee_role: DataTypes.STRING,
-  employee_phone: DataTypes.STRING,
-  employee_email: DataTypes.STRING,
-  employee_password: DataTypes.STRING,
-  auth_token: DataTypes.STRING,
+  imgUrl: DataTypes.STRING,
+  name: DataTypes.STRING,
+  role: DataTypes.STRING,
+  phone: DataTypes.STRING,
+  email: DataTypes.STRING,
+  password: DataTypes.STRING,
+  authToken: DataTypes.STRING,
 }, { sequelize, modelName: 'Employee' });
 
 module.exports = Employee;

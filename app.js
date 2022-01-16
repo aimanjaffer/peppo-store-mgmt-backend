@@ -12,15 +12,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors())
-app.use('/employees', routes.employeeRoute);
-app.use('/stores', routes.storeRoute);
-app.use('/products', routes.productRoute);
-app.use('/brands', routes.brandRoute);
-app.use('/categories', routes.categoryRoute);
-app.use('/customers', routes.customerRoute);
-app.use('/orderitem', routes.orderItemRoute);
-app.use('/orders', routes.orderRoute);
+app.use('/api', routes);
 
-//TODO: check the order in which route handlers are defined
+//Error Handler Middleware
+app.use((error, req, res, next) => {
+    return res.status(500).json({ error: error.toString() });
+});
 
 module.exports = app;

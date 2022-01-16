@@ -3,7 +3,7 @@ const sequelize = require("../config/database");
 const Product = require('./product');
 class Category extends Model {}
 Category.init({
-  category_name: DataTypes.STRING
+  name: DataTypes.STRING
 }, { sequelize, modelName: 'Category' });
 
 module.exports = Category;

@@ -3,7 +3,8 @@ const sequelize = require("../config/database");
 
 class OrderItem extends Model {}
 OrderItem.init({
-  quantity: DataTypes.INTEGER
+  quantity: DataTypes.INTEGER,
+  rating: DataTypes.REAL
 }, { sequelize, modelName: 'OrderItem' });
 
 module.exports = OrderItem;
